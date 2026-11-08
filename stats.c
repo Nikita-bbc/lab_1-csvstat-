@@ -21,7 +21,6 @@ typedef struct {
     long long nulls;
     long long count;
 
-    /* статистики INT */
     long long int_min;
     long long int_max;
 
