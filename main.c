@@ -2,22 +2,19 @@
 #include <stdio.h>
 #include <string.h>
 
-/* ---- Скопировано из модуля schema (должно совпадать с его определением) ---- */
 
-/* Порядок важен: тип столбца расширяется NULL -> INT -> DOUBLE -> STRING */
 typedef enum {
-    TYPE_NULL = 0,
-    TYPE_INT = 1,
-    TYPE_DOUBLE = 2,
-    TYPE_STRING = 3
+    type_null = 0,
+    type_int = 1,
+    type_double = 2,
+    type_string = 3
 } ColumnType;
 
-/* Настройки, которые влияют на разбор CSV */
 typedef struct {
     int scientific;
     int multiline;
     char delimiter;
-} Options;
+} Options; /* разбор csv */
 
 /* Один столбец: имя, тип и все статистики */
 typedef struct {
@@ -25,15 +22,13 @@ typedef struct {
     ColumnType type;
 
     long long nulls;
-    long long count; /* сколько значений НЕ NULL */
+    long long count; /* сколько значений not NULL */
 
     /* статистики INT */
     long long int_min;
     long long int_max;
     /*
-     * Сумма INT хранится без переполнения: положительные и отрицательные
-     * числа копятся отдельно. Каждая сумма - это пара беззнаковых чисел:
-     * low (младшие 64 бита) и high (сколько раз low переполнялось).
+    high (сколько раз low переполнялось).
      */
     unsigned long long pos_low;
     unsigned long long pos_high;
@@ -72,26 +67,23 @@ const char *type_name(ColumnType type);
 double int_mean(const Column *c);
 
 /*
- * Читает CSV-файл два раза: первый проход определяет типы,
- * второй считает статистики. Возвращает 0 при успехе, 1 при ошибке
- * (сообщение об ошибке уже выведено в stderr).
+ Читает CSV-файл два раза: первый проход определяет типы,
+ второй считает статистики. Возвращает 0 при успехе, 1 при ошибке
+ (сообщение об ошибке уже выведено в stderr).
  */
 int analyze_file(const char *path, const Options *opt, Table *t);
 
-/* ---- Скопировано из модуля stats (должно совпадать с его определением) ---- */
 
-/* Команда schema: строки, столбцы, имя и тип каждого столбца */
+/* Команда schema */
 void print_schema(FILE *out, const Table *t);
 
-/* Команда stats: общая информация и блоки статистик по столбцам */
+/* Команда stats */
 void print_stats(FILE *out, const Table *t);
 
-/* ---- Скопировано из модуля report (должно совпадать с его определением) ---- */
 
-/* Записывает таблицу со статистиками в текстовый файл. 0 - успех, 1 - ошибка. */
+/* Записывает таблицу со статистиками в текстовый файл */
 int write_report(const char *path, const Table *t);
 
-/* ---- Код модуля main ---- */
 
 #define EXIT_OK 0
 #define EXIT_RUNTIME_ERROR 1
@@ -128,7 +120,7 @@ static int delimiter_is_valid(const char *s)
     return 1;
 }
 
-/* Разбирает параметры начиная с argv[start]. 0 - успех, -1 - ошибка аргументов. */
+/* Разбирает параметры начиная с argv[start] */
 static int parse_options(int argc, char **argv, int start, Options *opt)
 {
     int seen_scientific = 0;

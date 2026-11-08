@@ -3,9 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* ---- Скопировано из модуля schema (должно совпадать с его определением) ---- */
-
-/* Порядок важен: тип столбца расширяется NULL -> INT -> DOUBLE -> STRING */
 typedef enum {
     TYPE_NULL = 0,
     TYPE_INT = 1,
@@ -13,14 +10,12 @@ typedef enum {
     TYPE_STRING = 3
 } ColumnType;
 
-/* Настройки, которые влияют на разбор CSV */
 typedef struct {
     int scientific;
     int multiline;
     char delimiter;
 } Options;
 
-/* Один столбец: имя, тип и все статистики */
 typedef struct {
     char *name;
     ColumnType type;
@@ -28,14 +23,9 @@ typedef struct {
     long long nulls;
     long long count; /* сколько значений НЕ NULL */
 
-    /* статистики INT */
     long long int_min;
     long long int_max;
-    /*
-     * Сумма INT хранится без переполнения: положительные и отрицательные
-     * числа копятся отдельно. Каждая сумма - это пара беззнаковых чисел:
-     * low (младшие 64 бита) и high (сколько раз low переполнялось).
-     */
+   
     unsigned long long pos_low;
     unsigned long long pos_high;
     unsigned long long neg_low;
@@ -44,20 +34,18 @@ typedef struct {
     long long negative;
     long long even;
 
-    /* статистики DOUBLE */
     double dbl_min;
     double dbl_max;
     double dbl_sum;
     long long integer;
 
-    /* статистики STRING */
     size_t str_min;
     size_t str_max;
     double str_total;
     long long empty;
 } Column;
 
-/* Вся таблица: число строк и столбцы */
+
 typedef struct {
     size_t rows;
     size_t columns;
@@ -72,25 +60,18 @@ const char *type_name(ColumnType type);
 /* Среднее арифметическое значений INT-столбца */
 double int_mean(const Column *c);
 
-/*
- * Читает CSV-файл два раза: первый проход определяет типы,
- * второй считает статистики. Возвращает 0 при успехе, 1 при ошибке
- * (сообщение об ошибке уже выведено в stderr).
- */
 int analyze_file(const char *path, const Options *opt, Table *t);
 
-/* ---- Скопировано из модуля util (должно совпадать с его определением) ---- */
 
 /* Размер буфера, которого хватит для любого вещественного числа с 6 знаками */
 #define REAL_BUF_SIZE 512
 
-/* Копирует строку в динамическую память. Вернёт NULL, если памяти нет. */
+/* Копирует строку в динамическую память */
 char *copy_string(const char *s);
 
-/* Печатает число с ровно 6 знаками после точки. Вместо "-0.000000" даёт "0.000000". */
+/* Печатает число с ровно 6 знаками после точки */
 void format_real(char *buf, size_t size, double x);
 
-/* ---- Код модуля report ---- */
 
 #define REPORT_COLS 8
 

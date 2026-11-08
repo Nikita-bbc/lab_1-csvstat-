@@ -3,28 +3,27 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* ---- Скопировано из модуля csv (должно совпадать с его определением) ---- */
 
 /* Результаты чтения записи */
 #define CSV_OK 1
 #define CSV_END 0
 #define CSV_ERROR -1
 
-/* Одно поле: уже разобранное значение + было ли оно в кавычках */
+/* уже разобранное значение + было ли оно в кавычках */
 typedef struct {
     char *text;    /* значение без кавычек, всегда заканчивается '\0' */
-    size_t length; /* длина в байтах */
+    size_t length; 
     int quoted;    /* 1, если поле было в двойных кавычках */
 } Field;
 
-/* Одна запись (строка таблицы) = массив полей */
+/* строка таблицы = массив полей */
 typedef struct {
     Field *items;
     size_t count;
     size_t capacity;
 } Record;
 
-/* Читатель CSV: помнит файл и настройки */
+/* помнит файл и настройки */
 typedef struct {
     FILE *file;
     char delimiter;
@@ -39,12 +38,9 @@ void csv_reader_init(CsvReader *reader, FILE *file, char delimiter, int multilin
 /* Читает следующую запись. Возвращает CSV_OK, CSV_END или CSV_ERROR. */
 int csv_read_record(CsvReader *reader, Record *rec);
 
-/* 1, если значение поля равно NULL (не в кавычках и пустое) */
+/* 1, если значение поля равно NULL */
 int csv_field_is_null(const Field *field);
 
-/* ---- Код модуля csv ---- */
-
-/* ---------- Маленький растущий буфер для символов ---------- */
 
 typedef struct {
     char *data;
@@ -81,7 +77,6 @@ static int buf_add(StrBuf *b, char c)
     return 1;
 }
 
-/* ---------- Запись ---------- */
 
 void record_init(Record *rec)
 {
@@ -108,7 +103,7 @@ void record_free(Record *rec)
     rec->capacity = 0;
 }
 
-/* Добавляет поле в запись. Запись забирает text себе. При ошибке text НЕ освобождается. */
+/* Добавляет поле в запись. Запись забирает text себе. При ошибке text не освобождается. */
 static int record_add(Record *rec, char *text, size_t length, int quoted)
 {
     if (rec->count == rec->capacity) {
@@ -127,7 +122,7 @@ static int record_add(Record *rec, char *text, size_t length, int quoted)
     return 1;
 }
 
-/* Запись из одного пустого поля (для физически пустой строки) */
+/* Запись из одного пустого поля */
 static int record_add_empty_field(Record *rec)
 {
     char *text = malloc(1);
@@ -142,7 +137,6 @@ static int record_add_empty_field(Record *rec)
     return 1;
 }
 
-/* ---------- Читатель ---------- */
 
 void csv_reader_init(CsvReader *reader, FILE *file, char delimiter, int multiline)
 {
@@ -167,10 +161,9 @@ static int skip_blanks(FILE *f)
 }
 
 /*
- * Читает одно поле в буфер b.
- * *quoted  = 1, если поле было в кавычках.
- * *end     = 1, если поле было последним в записи (после него \n или конец файла).
- * Возвращает 0 при успехе, -1 при ошибке (формат или память).
+Читает одно поле в буфер b.
+quoted = 1, если поле было в кавычках.
+end = 1, если поле было последним в записи..
  */
 static int read_field(CsvReader *r, StrBuf *b, int *quoted, int *end)
 {
@@ -253,11 +246,11 @@ int csv_read_record(CsvReader *r, Record *rec)
 
     if (c == '\n') {
         /*
-         * Физически пустая строка. Что с ней делать, зависит от того,
-         * есть ли дальше в файле что-то кроме пустых строк.
-         * Запоминаем место, пролистываем все пустые строки вперёд и смотрим:
-         *   - дошли до конца файла -> эти строки игнорируются, записей больше нет;
-         *   - иначе -> возвращаемся назад и отдаём одну пустую запись.
+        пустая строка. Что с ней делать, зависит от того,
+        есть ли дальше в файле что-то кроме пустых строк.
+        Запоминаем место, пролистываем все пустые строки вперёд и смотрим:
+        если дошли до конца файла, то эти строки игнорируются и записей больше нет
+        иначе возвращаемся назад и отдаём одну пустую запись.
          */
         long position = ftell(r->file);
         int next;

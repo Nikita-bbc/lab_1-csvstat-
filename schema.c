@@ -4,9 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* ---- Скопировано из модуля schema (должно совпадать с его определением) ---- */
 
-/* Порядок важен: тип столбца расширяется NULL -> INT -> DOUBLE -> STRING */
 typedef enum {
     TYPE_NULL = 0,
     TYPE_INT = 1,
@@ -14,29 +12,23 @@ typedef enum {
     TYPE_STRING = 3
 } ColumnType;
 
-/* Настройки, которые влияют на разбор CSV */
 typedef struct {
     int scientific;
     int multiline;
     char delimiter;
 } Options;
 
-/* Один столбец: имя, тип и все статистики */
+
 typedef struct {
     char *name;
     ColumnType type;
 
     long long nulls;
-    long long count; /* сколько значений НЕ NULL */
+    long long count; 
 
-    /* статистики INT */
     long long int_min;
     long long int_max;
-    /*
-     * Сумма INT хранится без переполнения: положительные и отрицательные
-     * числа копятся отдельно. Каждая сумма - это пара беззнаковых чисел:
-     * low (младшие 64 бита) и high (сколько раз low переполнялось).
-     */
+    
     unsigned long long pos_low;
     unsigned long long pos_high;
     unsigned long long neg_low;
@@ -45,20 +37,17 @@ typedef struct {
     long long negative;
     long long even;
 
-    /* статистики DOUBLE */
     double dbl_min;
     double dbl_max;
     double dbl_sum;
     long long integer;
 
-    /* статистики STRING */
     size_t str_min;
     size_t str_max;
     double str_total;
     long long empty;
 } Column;
 
-/* Вся таблица: число строк и столбцы */
 typedef struct {
     size_t rows;
     size_t columns;
@@ -70,38 +59,27 @@ void table_free(Table *t);
 
 const char *type_name(ColumnType type);
 
-/* Среднее арифметическое значений INT-столбца */
 double int_mean(const Column *c);
 
-/*
- * Читает CSV-файл два раза: первый проход определяет типы,
- * второй считает статистики. Возвращает 0 при успехе, 1 при ошибке
- * (сообщение об ошибке уже выведено в stderr).
- */
+
 int analyze_file(const char *path, const Options *opt, Table *t);
 
-/* ---- Скопировано из модуля csv (должно совпадать с его определением) ---- */
-
-/* Результаты чтения записи */
 #define CSV_OK 1
 #define CSV_END 0
 #define CSV_ERROR -1
 
-/* Одно поле: уже разобранное значение + было ли оно в кавычках */
 typedef struct {
-    char *text;    /* значение без кавычек, всегда заканчивается '\0' */
-    size_t length; /* длина в байтах */
-    int quoted;    /* 1, если поле было в двойных кавычках */
+    char *text;  
+    size_t length;
+    int quoted;    
 } Field;
 
-/* Одна запись (строка таблицы) = массив полей */
 typedef struct {
     Field *items;
     size_t count;
     size_t capacity;
 } Record;
 
-/* Читатель CSV: помнит файл и настройки */
 typedef struct {
     FILE *file;
     char delimiter;
@@ -113,26 +91,17 @@ void record_free(Record *rec);
 
 void csv_reader_init(CsvReader *reader, FILE *file, char delimiter, int multiline);
 
-/* Читает следующую запись. Возвращает CSV_OK, CSV_END или CSV_ERROR. */
 int csv_read_record(CsvReader *reader, Record *rec);
 
-/* 1, если значение поля равно NULL (не в кавычках и пустое) */
 int csv_field_is_null(const Field *field);
 
-/* ---- Скопировано из модуля util (должно совпадать с его определением) ---- */
 
-/* Размер буфера, которого хватит для любого вещественного числа с 6 знаками */
 #define REAL_BUF_SIZE 512
 
-/* Копирует строку в динамическую память. Вернёт NULL, если памяти нет. */
 char *copy_string(const char *s);
 
-/* Печатает число с ровно 6 знаками после точки. Вместо "-0.000000" даёт "0.000000". */
 void format_real(char *buf, size_t size, double x);
 
-/* ---- Код модуля schema ---- */
-
-/* ---------- Таблица ---------- */
 
 void table_init(Table *t)
 {
@@ -165,9 +134,8 @@ const char *type_name(ColumnType type)
     }
 }
 
-/* ---------- Определение типа значения ---------- */
 
-/* Идёт вперёд по цифрам и возвращает указатель на первый не-цифровой символ */
+/* Идёт вперёд по цифрам и возвращает указатель на первый нецифровой символ */
 static const char *skip_digits(const char *s)
 {
     while (*s >= '0' && *s <= '9') {
@@ -176,8 +144,8 @@ static const char *skip_digits(const char *s)
     return s;
 }
 
-/* Подходит ли строка под [+-]?[0-9]+ */
-static int looks_like_int(const char *s)
+/* Подходит ли строка под int */
+static int like_int(const char *s)
 {
     const char *end;
     if (*s == '+' || *s == '-') {
@@ -187,12 +155,7 @@ static int looks_like_int(const char *s)
     return end != s && *end == '\0';
 }
 
-/*
- * Базовый режим: [+-]?[0-9]+\.[0-9]+
- * С --scientific дополнительно можно: [eE][+-]?[0-9]+ (и точка тогда не обязательна)
- * Но чистое целое ("5") вещественным не считается - оно INT.
- */
-static int looks_like_double(const char *s, int scientific)
+static int like_double(const char *s, int scientific)
 {
     const char *p;
     const char *q;
@@ -238,7 +201,7 @@ static ColumnType detect_value_type(const Field *f, int scientific)
     if (csv_field_is_null(f)) {
         return TYPE_NULL;
     }
-    if (looks_like_int(f->text)) {
+    if (like_int(f->text)) {
         errno = 0;
         strtoll(f->text, NULL, 10);
         if (errno == ERANGE) {
@@ -246,7 +209,7 @@ static ColumnType detect_value_type(const Field *f, int scientific)
         }
         return TYPE_INT;
     }
-    if (looks_like_double(f->text, scientific)) {
+    if (like_double(f->text, scientific)) {
         double v = strtod(f->text, NULL);
         if (v - v != 0.0) {
             return TYPE_STRING; /* получилась бесконечность (inf - inf не равно 0) */
@@ -256,7 +219,6 @@ static ColumnType detect_value_type(const Field *f, int scientific)
     return TYPE_STRING;
 }
 
-/* ---------- Обновление статистик одним значением ---------- */
 
 /* Прибавляет x к числу из двух частей (high, low) */
 static void add_to_sum(unsigned long long *low, unsigned long long *high, unsigned long long x)
@@ -267,10 +229,10 @@ static void add_to_sum(unsigned long long *low, unsigned long long *high, unsign
     }
 }
 
-/* Переводит пару (high, low) в обычное вещественное число */
+/* Переводит high и low в обычное вещественное число */
 static double sum_to_double(unsigned long long low, unsigned long long high)
 {
-    return (double)high * 18446744073709551616.0 + (double)low; /* 18446744073709551616 = 2^64 */
+    return (double)high * 18446744073709551616.0 + (double)low;
 }
 
 double int_mean(const Column *c)
@@ -279,21 +241,16 @@ double int_mean(const Column *c)
     unsigned long long high;
     double mean;
 
-    /*
-     * Разность (положительные - отрицательные) считаем точно, пока числа
-     * ещё целые, и только потом переводим в double. Иначе близкие большие
-     * суммы "съедят" друг друга.
-     */
     if (c->pos_high > c->neg_high || (c->pos_high == c->neg_high && c->pos_low >= c->neg_low)) {
         /* сумма неотрицательная: pos - neg */
         low = c->pos_low - c->neg_low;
         high = c->pos_high - c->neg_high;
         if (c->pos_low < c->neg_low) {
-            high--; /* заём из старшей части */
+            high--; /* занимаем из старшей части */
         }
         mean = sum_to_double(low, high) / (double)c->count;
     } else {
-        /* сумма отрицательная: neg - pos, потом меняем знак */
+        /* сумма отрицательная -> neg - pos, потом меняем знак */
         low = c->neg_low - c->pos_low;
         high = c->neg_high - c->pos_high;
         if (c->neg_low < c->pos_low) {
@@ -320,7 +277,7 @@ static void add_int(Column *c, long long v)
     if (v >= 0) {
         add_to_sum(&c->pos_low, &c->pos_high, (unsigned long long)v);
     } else {
-        /* модуль отрицательного числа; так работает и для LLONG_MIN */
+        /* модуль отрицательного числа */
         add_to_sum(&c->neg_low, &c->neg_high, 0ULL - (unsigned long long)v);
     }
     if (v > 0) {
@@ -334,14 +291,12 @@ static void add_int(Column *c, long long v)
     c->count++;
 }
 
-/* Целое ли число. Без библиотеки math.h. */
+/* Целое ли число */
 static int is_whole_number(double v)
 {
-    /* Числа от 2^63 по модулю у double всегда целые (у них нет дробной части) */
     if (v >= 9223372036854775808.0 || v <= -9223372036854775808.0) {
         return 1;
     }
-    /* Остальные влезают в long long: отбрасываем дробную часть и сравниваем */
     return v == (double)(long long)v;
 }
 
@@ -390,7 +345,6 @@ static void add_string(Column *c, const Field *f)
     c->count++;
 }
 
-/* ---------- Шаги анализа ---------- */
 
 /* Создаёт столбцы по заголовку и проверяет имена */
 static int create_columns(const Record *header, Table *t)
@@ -411,7 +365,7 @@ static int create_columns(const Record *header, Table *t)
         }
     }
 
-    t->cols = calloc(header->count, sizeof(Column)); /* всё обнулено, тип = TYPE_NULL */
+    t->cols = calloc(header->count, sizeof(Column));
     if (t->cols == NULL) {
         fprintf(stderr, "error: out of memory\n");
         return -1;
@@ -427,7 +381,7 @@ static int create_columns(const Record *header, Table *t)
     return 0;
 }
 
-/* Проход 1: считаем строки и определяем типы столбцов */
+/* считаем строки и определяем типы столбцов */
 static int detect_types(CsvReader *reader, Record *rec, Table *t, const Options *opt)
 {
     int status;
@@ -453,7 +407,7 @@ static int detect_types(CsvReader *reader, Record *rec, Table *t, const Options 
     return 0;
 }
 
-/* Проход 2: типы уже известны, считаем статистики */
+/* считаем статистики */
 static int compute_stats(CsvReader *reader, Record *rec, Table *t)
 {
     int status;
@@ -482,16 +436,12 @@ static int compute_stats(CsvReader *reader, Record *rec, Table *t)
     return 0;
 }
 
-/*
- * Весь анализ файла. При любой ошибке сразу возвращает -1.
- * Освобождать память здесь не нужно - это делает analyze_file.
- */
 static int analyze_stream(FILE *file, const Options *opt, Table *t, Record *rec)
 {
     CsvReader reader;
     int status;
 
-    /* Проход 1: заголовок, потом типы */
+    /* заголовок и типы */
     csv_reader_init(&reader, file, opt->delimiter, opt->multiline);
     status = csv_read_record(&reader, rec);
     if (status == CSV_END) {
@@ -509,7 +459,7 @@ static int analyze_stream(FILE *file, const Options *opt, Table *t, Record *rec)
         return -1;
     }
 
-    /* Проход 2: возвращаемся в начало файла, пропускаем заголовок, считаем статистики */
+    /*считаем статистики */
     rewind(file);
     csv_reader_init(&reader, file, opt->delimiter, opt->multiline);
     if (csv_read_record(&reader, rec) != CSV_OK) {
@@ -539,7 +489,6 @@ int analyze_file(const char *path, const Options *opt, Table *t)
     record_init(&rec);
     status = analyze_stream(file, opt, t, &rec);
 
-    /* Эти два действия нужны всегда, и при успехе, и при ошибке */
     record_free(&rec);
     fclose(file);
 
